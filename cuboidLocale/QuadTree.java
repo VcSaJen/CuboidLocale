@@ -165,32 +165,39 @@ public class QuadTree{
    * will not go over the edge, leaving only the top, right, and upper right possibilities need be regarded.
    * 
    * Spits out a list of cuboids that are fit for "insertion" although we just use them for the search and actually
-   * attach the original cuboid 
+   * attach the original cuboid.
+   * 
+   * We also return the remainder shard if we generated any others. At the other end we only include a node if it's
+   * shard didn't re-shard. Keeps the tree search spaces minimal.
    *  
    */
   private ArrayList<PrimitiveCuboid> generateShards(QuadNode node, PrimitiveCuboid c){
-    ArrayList<PrimitiveCuboid> shards = new ArrayList<PrimitiveCuboid>(3);
-    long top = node.z+node.size+1;
-    long right = node.x+node.size+1;
+    ArrayList<PrimitiveCuboid> shards = new ArrayList<PrimitiveCuboid>(4);
+    long top = node.z+node.size;
+    long right = node.x+node.size;
     long tmp;
     if(top < c.xyzB[2]){
       if(right < c.xyzB[0]){
-        tmp = right;
+        tmp = right+1;
       }else{
         tmp = c.xyzB[0];
       }
-      shards.add(new PrimitiveCuboid(c.xyzA[0], 0, top, tmp, 0, c.xyzB[2]));
+      shards.add(new PrimitiveCuboid(c.xyzA[0], 0, top+1, tmp, 0, c.xyzB[2]));
     }
     if(right < c.xyzB[0]){
       if(top < c.xyzB[2]){
-        tmp = top;
+        tmp = top+1;
       }else{
         tmp = c.xyzB[2];
       }
-      shards.add(new PrimitiveCuboid(right, 0, c.xyzA[2], c.xyzB[0], 0, tmp));
+      shards.add(new PrimitiveCuboid(right+1, 0, c.xyzA[2], c.xyzB[0], 0, tmp));
     }
     if(right < c.xyzB[0] && top < c.xyzB[2]){
-      shards.add(new PrimitiveCuboid(right, 0, top, c.xyzB[0], 0, c.xyzB[2]));
+      shards.add(new PrimitiveCuboid(right+1, 0, top+1, c.xyzB[0], 0, c.xyzB[2]));
+    }
+    //include the remainder as a shard if we generated any others
+    if(shards.size() > 0){
+      shards.add(new PrimitiveCuboid(c.xyzA[0], 0, c.xyzA[2], right, 0, top));
     }
     return shards;
   }
@@ -207,8 +214,12 @@ public class QuadTree{
     while(!shards.empty()){
       PrimitiveCuboid shard = shards.pop();
       node = descendAndCreate(root, shard);
-      targets.add(node);
-      for(PrimitiveCuboid t : generateShards(node, shard)){
+      ArrayList<PrimitiveCuboid> newShards = generateShards(node, shard);
+      //If no shards were made then this is is the bounding node for this shard. Include it.
+      if(newShards.size() == 0){
+        targets.add(node);
+      }
+      for(PrimitiveCuboid t : newShards){
         shards.add(t);
       }
     }
