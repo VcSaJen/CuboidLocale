@@ -8,7 +8,7 @@ public class QuadTree{
   
   int ct = 0;
   private void beginTree(PrimitiveCuboid c){
-    long size = 1;
+    long size = 2;
     long minSize = Math.abs(c.xyzA[0] - c.xyzB[0]);
     long minSizeB = Math.abs(c.xyzA[2] - c.xyzB[2]);
     if(minSize < minSizeB){
@@ -17,7 +17,7 @@ public class QuadTree{
     while(size < minSize){
       size = size << 1;
     }
-    root = new QuadNode(c.xyzA[0], c.xyzA[2], size, null);
+    root = new QuadNode(c.xyzA[0], c.xyzA[2], size-1, null);
   }
   
   private boolean nodeFullyContainsCuboid(QuadNode node, PrimitiveCuboid c){
@@ -55,20 +55,18 @@ public class QuadTree{
   
   private QuadNode descendAndCreate(QuadNode start, PrimitiveCuboid c){
     QuadNode next = start;
-    //long x = c.xyzA[0];
-    //long z = c.xyzA[2];
     while(containerFit(next, c) > 0){
       int i = 0;
       long nX = 0;
       long nZ = 0;
       long half = (next.size >> 1);
-      if(c.xyzA[0] >= (next.x + half)){
+      if(c.xyzA[0] > (next.x + half)){
         i++;
-        nX = half; 
+        nX = half+1;
       }
-      if(c.xyzA[2] >= (next.z + half)){
+      if(c.xyzA[2] > (next.z + half)){
         i += 2;
-        nZ = half;
+        nZ = half+1;
       }
       if(next.quads[i] == null){
         next.quads[i] = new QuadNode(next.x+nX, next.z+nZ, half, next);
@@ -85,10 +83,10 @@ public class QuadTree{
       node = next;
       long half = node.size >> 1;
       int i = 0;
-      if(x >= (node.x + half)){
+      if(x > (node.x + half)){
         i++;
       }
-      if(z >= (node.z+half)){
+      if(z > (node.z + half)){
         i +=2;
       }
       next = node.quads[i];
@@ -142,7 +140,7 @@ public class QuadTree{
     int i;
     do{
       oldRoot = root;
-      root = new QuadNode(oldRoot.x, oldRoot.z, oldRoot.size << 1, null);
+      root = new QuadNode(oldRoot.x, oldRoot.z, (oldRoot.size << 1)+1, null);
       oldRoot.parent = root;
       //Figure out the best direction to grow in (that is, which quadrant is the old root in the new root?)
       //We start at lower left (quad 0)
@@ -150,12 +148,12 @@ public class QuadTree{
       //The target is left of us
       if(c.xyzA[0] < root.x){
         i++;
-        root.x -= oldRoot.size;
+        root.x -= oldRoot.size+1;
       }
       //The target is below us
       if(c.xyzA[2] < root.z){
         i += 2;
-        root.z -= oldRoot.size;
+        root.z -= oldRoot.size+1;
       }
       root.quads[i] = oldRoot;
     }while(!nodeFullyContainsCuboid(root, c));
@@ -172,9 +170,8 @@ public class QuadTree{
    */
   private ArrayList<PrimitiveCuboid> generateShards(QuadNode node, PrimitiveCuboid c){
     ArrayList<PrimitiveCuboid> shards = new ArrayList<PrimitiveCuboid>(3);
-    //long half = node.size >> 1;
-    long top = node.z+node.size;// + half;
-    long right = node.x+node.size;// + half;
+    long top = node.z+node.size+1;
+    long right = node.x+node.size+1;
     long tmp;
     if(top < c.xyzB[2]){
       if(right < c.xyzB[0]){
