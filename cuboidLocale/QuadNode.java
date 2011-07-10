@@ -32,8 +32,29 @@ public class QuadNode{
     }
   }
 
-  String getInfo(){
+  @Override
+  public String toString(){
     return "(" + x + "," + z + "; " + size + ")";
+  }
+
+  @Override
+  public int hashCode(){
+    return (int) (x ^ z ^ (~size));
+  }
+
+  @Override
+  public boolean equals(Object o){
+    if(o == this){
+      return true;
+    }else if(!(o instanceof QuadNode)){
+      return false;
+    }
+    QuadNode n = (QuadNode) o;
+
+    if(x != n.x || z != n.z || size != n.size){
+      return false;
+    }
+    return true;
   }
 
   // Length of a side, always a power of two

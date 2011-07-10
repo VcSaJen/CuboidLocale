@@ -8,7 +8,7 @@ public class Test{
     int x, y, z;
     int i;
     int ct = 0;
-    for(i = 0; i < 100000; i++){
+    for(i = 0; i < 500000; i++){
       x = (rng.nextInt()) % 10000;
       y = (rng.nextInt()) % 10000;
       z = (rng.nextInt()) % 10000;
@@ -43,6 +43,10 @@ public class Test{
       res = tree.relatedSearch(res.bookmark, x, y, z);
       int size = res.results.size();
       if(size > 1){
+        System.err.println("Point: " + x + ":" + y + ":" + z);
+        for(PrimitiveCuboid pc : res.results){
+          System.err.println("In " + pc);
+        }
         System.err.println("S:" + size);
         QuadNode target = res.bookmark;
         while(target != null){
@@ -52,8 +56,8 @@ public class Test{
           }
           target = target.nextListHolder;
         }
+        System.err.println();
       }
     }
-
   }
 }

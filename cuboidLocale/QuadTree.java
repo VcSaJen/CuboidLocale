@@ -10,7 +10,7 @@ public class QuadTree{
   QuadNode root;
 
   private void beginTree(PrimitiveCuboid c){
-    long size = 2;
+    long size = 128;
     long minSize = Math.abs(c.xyzA[0] - c.xyzB[0]);
     long minSizeB = Math.abs(c.xyzA[2] - c.xyzB[2]);
     if(minSize < minSizeB){
@@ -190,39 +190,53 @@ public class QuadTree{
     long top = node.z + node.size;
     long right = node.x + node.size;
     long tmp;
+
+    // find a shard above if it exists
     if(top < c.xyzB[2]){
+      // Find out if it extends past the top only or the right and top
+      // Limit the "top" shard to only directly above the original node
       if(right < c.xyzB[0]){
-        tmp = right + 1;
+        tmp = right;
       }else{
         tmp = c.xyzB[0];
       }
-      shards.add(new PrimitiveCuboid(c.xyzA[0], 0, top + 1, tmp, 0, c.xyzB[2]));
+      shards.add(new PrimitiveCuboid(c.xyzA[0], 0, top + 1,
+        tmp, 0, c.xyzB[2]));
     }
+    // Find a shard to the right
     if(right < c.xyzB[0]){
+      // find if we extend past the top as well
+      // Limit the "right" shard to only directly right
       if(top < c.xyzB[2]){
-        tmp = top + 1;
+        tmp = top;
       }else{
         tmp = c.xyzB[2];
       }
-      shards.add(new PrimitiveCuboid(right + 1, 0, c.xyzA[2], c.xyzB[0], 0, tmp));
+      shards.add(new PrimitiveCuboid(right + 1, 0, c.xyzA[2],
+        c.xyzB[0], 0, tmp));
     }
+    // Check for a top right shard
     if(right < c.xyzB[0] && top < c.xyzB[2]){
-      shards.add(new PrimitiveCuboid(right + 1, 0, top + 1, c.xyzB[0], 0, c.xyzB[2]));
+      shards.add(new PrimitiveCuboid(right + 1, 0, top + 1,
+        c.xyzB[0], 0, c.xyzB[2]));
     }
     // include the remainder as a shard if we generated any others
     if(shards.size() > 0){
-      shards.add(new PrimitiveCuboid(c.xyzA[0], 0, c.xyzA[2], right, 0, top));
+      shards.add(new PrimitiveCuboid(c.xyzA[0], 0, c.xyzA[2],
+        right, 0, top));
     }
     return shards;
   }
 
   // Finds all the nodes that a cuboid should reside in (handles sharding)
-  private List<QuadNode> getAllTargets(QuadNode node, PrimitiveCuboid c){
+  private List<QuadNode> getAllTargets(QuadNode inode, PrimitiveCuboid c){
     List<QuadNode> targets = new ArrayList<QuadNode>();
-    targets.add(node);
     // Generate the initial shards
     Stack<PrimitiveCuboid> shards = new Stack<PrimitiveCuboid>();
-    shards.addAll(generateShards(node, c));
+    shards.addAll(generateShards(inode, c));
+
+    QuadNode node;
+    int i = 0;
     while(!shards.empty()){
       PrimitiveCuboid shard = shards.pop();
       node = descendAndCreate(root, shard);
@@ -234,7 +248,15 @@ public class QuadTree{
       }else{
         shards.addAll(newShards);
       }
+      i++;
     }
+
+    // If the initial shard attempt turns out to not have had
+    // to generate shards then we need to add the initial node
+    if(targets.size() == 0){
+      targets.add(inode);
+    }
+
     return targets;
   }
 
@@ -251,8 +273,8 @@ public class QuadTree{
     if(node.cuboids.size() > 1){
       return;
     }
-    // Descend the tree. When we find a node with no pointer to a list holder we
-    // know that it needs the new list holder
+    // Descend the tree. When we find a node with no cuboids it needs a new list
+    // holder
     Stack<QuadNode> todo = new Stack<QuadNode>();
     todo.push(node);
     QuadNode current;
@@ -308,8 +330,8 @@ public class QuadTree{
     if(node.cuboids.size() > 0){
       return;
     }
-    // Descend the tree. When we find a node with no pointer to a list holder we
-    // know that it will need the new list holder
+    // Descend the tree. When we find a node with no children we know it needs a
+    // new list holder
     Stack<QuadNode> todo = new Stack<QuadNode>();
     todo.push(node);
     QuadNode current;

@@ -93,7 +93,7 @@ public class PrimitiveCuboid{
       .append("xA: ").append(xyzA[0])
       .append(" yA: ").append(xyzA[1])
       .append(" zA: ").append(xyzA[2])
-      .append("  xB: ").append(xyzB[0])
+      .append(" * xB: ").append(xyzB[0])
       .append(" yB: ").append(xyzB[1])
       .append(" zB: ").append(xyzB[2])
       .toString();
