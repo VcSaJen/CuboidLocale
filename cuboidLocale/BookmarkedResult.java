@@ -12,8 +12,9 @@ public class BookmarkedResult{
     results = Collections.unmodifiableList(c);
   }
 
+  @SuppressWarnings("unchecked")
   public static final BookmarkedResult emptyBookmark = new BookmarkedResult(
-    null, Collections.EMPTY_LIST
-    );
+      null, (List<PrimitiveCuboid>) (Collections.EMPTY_LIST)
+      );
 
 }

@@ -1,6 +1,7 @@
 package cuboidLocale;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -24,9 +25,9 @@ public class QuadTree{
 
   private boolean nodeFullyContainsCuboid(QuadNode node, PrimitiveCuboid c){
     if(node.x <= c.xyzA[0] &&
-       node.z <= c.xyzA[2] &&
-       (node.x + node.size) >= c.xyzB[0] &&
-       (node.z + node.size) >= c.xyzB[2]){
+        node.z <= c.xyzA[2] &&
+        (node.x + node.size) >= c.xyzB[0] &&
+        (node.z + node.size) >= c.xyzB[2]){
       return true;
     }
     return false;
@@ -35,8 +36,7 @@ public class QuadTree{
   /**
    * Returns -1 for too small, 0 for minimal, 1 for larger than needed
    * <p>
-   * Fit is based on the larger side. Means more tests but consumes an order of
-   * magnitude or less memory.
+   * Fit is based on the larger side. Means more tests but consumes an order of magnitude or less memory.
    * 
    * @param node
    * @param c
@@ -201,7 +201,7 @@ public class QuadTree{
         tmp = c.xyzB[0];
       }
       shards.add(new PrimitiveCuboid(c.xyzA[0], 0, top + 1,
-        tmp, 0, c.xyzB[2]));
+          tmp, 0, c.xyzB[2]));
     }
     // Find a shard to the right
     if(right < c.xyzB[0]){
@@ -213,27 +213,27 @@ public class QuadTree{
         tmp = c.xyzB[2];
       }
       shards.add(new PrimitiveCuboid(right + 1, 0, c.xyzA[2],
-        c.xyzB[0], 0, tmp));
+          c.xyzB[0], 0, tmp));
     }
     // Check for a top right shard
     if(right < c.xyzB[0] && top < c.xyzB[2]){
       shards.add(new PrimitiveCuboid(right + 1, 0, top + 1,
-        c.xyzB[0], 0, c.xyzB[2]));
+          c.xyzB[0], 0, c.xyzB[2]));
     }
     // include the remainder as a shard if we generated any others
     if(shards.size() > 0){
       shards.add(new PrimitiveCuboid(c.xyzA[0], 0, c.xyzA[2],
-        right, 0, top));
+          right, 0, top));
     }
     return shards;
   }
 
   // Finds all the nodes that a cuboid should reside in (handles sharding)
-  private List<QuadNode> getAllTargets(QuadNode inode, PrimitiveCuboid c){
+  private List<QuadNode> getAllTargets(QuadNode initialNode, PrimitiveCuboid c){
     List<QuadNode> targets = new ArrayList<QuadNode>();
     // Generate the initial shards
     Stack<PrimitiveCuboid> shards = new Stack<PrimitiveCuboid>();
-    shards.addAll(generateShards(inode, c));
+    shards.addAll(generateShards(initialNode, c));
 
     QuadNode node;
     int i = 0;
@@ -254,7 +254,7 @@ public class QuadTree{
     // If the initial shard attempt turns out to not have had
     // to generate shards then we need to add the initial node
     if(targets.size() == 0){
-      targets.add(inode);
+      targets.add(initialNode);
     }
 
     return targets;
@@ -309,8 +309,26 @@ public class QuadTree{
     // Now that we have our target we potentially need to generate shards and
     // target their nodes as well
     List<QuadNode> targets = getAllTargets(node, c);
-    Set<PrimitiveCuboid> cuboids = new HashSet<PrimitiveCuboid>();
+    Stack<QuadNode> children = new Stack<QuadNode>();
+    Set<PrimitiveCuboid> cuboids = new HashSet<PrimitiveCuboid>(256); // Generous initial capacity for speed
+    QuadNode childTarget;
+    // Of note: adding all the cuboids to the set and then testing is faster
+    // than testing as we go and potentially getting out faster
+    // This is especially true when there is less likely to be an overlap anyway
     for(QuadNode target : targets){
+      // Drill down to the children nodes to get the smaller cuboids contained therein
+      children.add(target);
+      do{
+        childTarget = children.pop();
+        for(QuadNode child : childTarget.quads){
+          if(child == null){
+            continue;
+          }
+          children.push(child);
+          cuboids.addAll(child.cuboids);
+        }
+      }while(!children.isEmpty());
+      // Then ascend backup and add the ones there
       while(target != null){
         cuboids.addAll(target.cuboids);
         target = target.nextListHolder;
@@ -322,6 +340,115 @@ public class QuadTree{
       }
     }
     return false;
+  }
+
+  @SuppressWarnings("unchecked")
+  public List<PrimitiveCuboid> cuboidOverlapsWith(PrimitiveCuboid c){
+    if(root == null){
+      return Collections.EMPTY_LIST;
+    }
+    // if this cuboid falls outside of the tree, we need to repot the tree to
+    // gain a wider perspective!
+    if(!nodeFullyContainsCuboid(root, c)){
+      repotTree(c);
+    }
+    QuadNode node = root;
+    node = descendAndCreate(node, c);
+    // Now that we have our target we potentially need to generate shards and
+    // target their nodes as well
+    List<QuadNode> targets = getAllTargets(node, c);
+    Stack<QuadNode> children = new Stack<QuadNode>();
+    Set<PrimitiveCuboid> cuboids = new HashSet<PrimitiveCuboid>(256); // Generous initial capacity for speed
+    QuadNode childTarget;
+    // Of note: adding all the cuboids to the set and then testing is faster
+    // than testing as we go and potentially getting out faster
+    // This is especially true when there is less likely to be an overlap anyway
+    for(QuadNode target : targets){
+      // Drill down to the children nodes to get the smaller cuboids contained therein
+      children.add(target);
+      do{
+        childTarget = children.pop();
+        for(QuadNode child : childTarget.quads){
+          if(child == null){
+            continue;
+          }
+          children.push(child);
+          cuboids.addAll(child.cuboids);
+        }
+      }while(!children.isEmpty());
+      // Then ascend backup and add the ones there
+      while(target != null){
+        cuboids.addAll(target.cuboids);
+        target = target.nextListHolder;
+      }
+    }
+    List<PrimitiveCuboid> overlaps = new ArrayList<PrimitiveCuboid>();
+    for(PrimitiveCuboid pc : cuboids){
+      if(c.overlaps(pc)){
+        overlaps.add(pc);
+      }
+    }
+    return overlaps;
+  }
+
+  /**
+   * Attempts to insert the node ONLY if there are no overlaps with existing nodes
+   * 
+   * @param c
+   *          cuboid to insert
+   * @return success or failure
+   */
+  public boolean insertOnlyWithoutOverlaps(PrimitiveCuboid c){
+    if(root == null){
+      insert(c);
+      return true;
+    }
+    // if this cuboid falls outside of the tree, we need to repot the tree to
+    // gain a wider perspective!
+    if(!nodeFullyContainsCuboid(root, c)){
+      repotTree(c);
+    }
+    QuadNode node = root;
+    node = descendAndCreate(node, c);
+    // Now that we have our target we potentially need to generate shards and
+    // target their nodes as well
+    List<QuadNode> targets = getAllTargets(node, c);
+    Stack<QuadNode> children = new Stack<QuadNode>();
+    Set<PrimitiveCuboid> cuboids = new HashSet<PrimitiveCuboid>(256); // Generous initial capacity for speed
+    QuadNode childTarget;
+    // Of note: adding all the cuboids to the set and then testing is faster
+    // than testing as we go and potentially getting out faster
+    // This is especially true when there is less likely to be an overlap anyway
+    for(QuadNode target : targets){
+      // Drill down to the children nodes to get the smaller cuboids contained therein
+      children.add(target);
+      do{
+        childTarget = children.pop();
+        for(QuadNode child : childTarget.quads){
+          if(child == null){
+            continue;
+          }
+          children.push(child);
+          cuboids.addAll(child.cuboids);
+        }
+      }while(!children.isEmpty());
+      // Then ascend backup and add the ones there
+      while(target != null){
+        cuboids.addAll(target.cuboids);
+        target = target.nextListHolder;
+      }
+    }
+    List<PrimitiveCuboid> overlaps = new ArrayList<PrimitiveCuboid>();
+    for(PrimitiveCuboid pc : cuboids){
+      if(c.overlaps(pc)){
+        return false;
+      }
+    }
+    // Add the cuboid everywhere it belongs
+    for(QuadNode target : targets){
+      addAndFixListHolders(target, c);
+    }
+    return true;
   }
 
   private void removeAndFixListHolders(QuadNode node, PrimitiveCuboid c){
@@ -362,7 +489,7 @@ public class QuadTree{
   private void pruneTree(QuadNode node){
     int i;
     while(node.parent != null && node.quads[0] == null && node.quads[1] == null && node.quads[2] == null
-      && node.quads[3] == null){
+        && node.quads[3] == null){
       i = 0;
       if(node.x != node.parent.x){
         i++;
