@@ -41,7 +41,7 @@ public class PrimitiveCuboid{
     this.normalize();
   }
 
-  final public boolean includesPoint(long x, long y, long z){
+  public boolean includesPoint(long x, long y, long z){
     if(xyzA[0] <= x && xyzA[1] <= y && xyzA[2] <= z &&
        xyzB[0] >= x && xyzB[1] >= y && xyzB[2] >= z){
       return true;
@@ -49,7 +49,7 @@ public class PrimitiveCuboid{
     return false;
   }
 
-  final public boolean includesPoint(long[] pt){
+  public boolean includesPoint(long[] pt){
     return this.includesPoint(pt[0], pt[1], pt[2]);
   }
 
@@ -78,7 +78,7 @@ public class PrimitiveCuboid{
     return true;
   }
 
-  final public boolean overlaps(PrimitiveCuboid c){
+  public boolean overlaps(PrimitiveCuboid c){
     for(int i = 0; i < 3; i++){
       if(xyzA[i] > c.xyzB[i] || c.xyzA[i] > xyzB[i]){
         return false;
