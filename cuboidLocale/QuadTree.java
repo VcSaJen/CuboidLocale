@@ -84,6 +84,30 @@ public class QuadTree{
     return next;
   }
 
+  private QuadNode descendNoCreate(QuadNode start, PrimitiveCuboid c){
+    QuadNode next = start;
+    while(containerFit(next, c) > 0){
+      int i = 0;
+      long nX = 0;
+      long nZ = 0;
+      long half = (next.size >> 1);
+      if(c.xyzA[0] > (next.x + half)){
+        i++;
+        nX = half + 1;
+      }
+      if(c.xyzA[2] > (next.z + half)){
+        i += 2;
+        nZ = half + 1;
+      }
+      if(next.quads[i] == null){
+        next = new QuadNode(next.x + nX, next.z + nZ, half, next);
+      }else{
+        next = next.quads[i];
+      }
+    }
+    return next;
+  }
+
   private QuadNode descendAndSearch(QuadNode node, long x, long z){
     QuadNode next = node;
     while(next != null){
@@ -260,6 +284,38 @@ public class QuadTree{
     return targets;
   }
 
+  // Finds all the nodes that a cuboid should reside in (handles sharding)
+  private List<QuadNode> getAllTargetsNoCreate(QuadNode initialNode, PrimitiveCuboid c){
+    List<QuadNode> targets = new ArrayList<QuadNode>();
+    // Generate the initial shards
+    Stack<PrimitiveCuboid> shards = new Stack<PrimitiveCuboid>();
+    shards.addAll(generateShards(initialNode, c));
+
+    QuadNode node;
+    int i = 0;
+    while(!shards.empty()){
+      PrimitiveCuboid shard = shards.pop();
+      node = descendNoCreate(root, shard);
+      List<PrimitiveCuboid> newShards = generateShards(node, shard);
+      // If no shards were made then this is is the bounding node for this
+      // shard. Include it.
+      if(newShards.size() == 0){
+        targets.add(node);
+      }else{
+        shards.addAll(newShards);
+      }
+      i++;
+    }
+
+    // If the initial shard attempt turns out to not have had
+    // to generate shards then we need to add the initial node
+    if(targets.size() == 0){
+      targets.add(initialNode);
+    }
+
+    return targets;
+  }
+
   /**
    * Adds the PrimitiveCuboid to the target node and fixes up the children's
    * list holder link
@@ -305,10 +361,10 @@ public class QuadTree{
       repotTree(c);
     }
     QuadNode node = root;
-    node = descendAndCreate(node, c);
+    node = descendNoCreate(node, c);
     // Now that we have our target we potentially need to generate shards and
     // target their nodes as well
-    List<QuadNode> targets = getAllTargets(node, c);
+    List<QuadNode> targets = getAllTargetsNoCreate(node, c);
     Stack<QuadNode> children = new Stack<QuadNode>();
     Set<PrimitiveCuboid> cuboids = new HashSet<PrimitiveCuboid>(256); // Generous initial capacity for speed
     QuadNode childTarget;
@@ -353,10 +409,10 @@ public class QuadTree{
       repotTree(c);
     }
     QuadNode node = root;
-    node = descendAndCreate(node, c);
+    node = descendNoCreate(node, c);
     // Now that we have our target we potentially need to generate shards and
     // target their nodes as well
-    List<QuadNode> targets = getAllTargets(node, c);
+    List<QuadNode> targets = getAllTargetsNoCreate(node, c);
     Stack<QuadNode> children = new Stack<QuadNode>();
     Set<PrimitiveCuboid> cuboids = new HashSet<PrimitiveCuboid>(256); // Generous initial capacity for speed
     QuadNode childTarget;
@@ -438,9 +494,13 @@ public class QuadTree{
         target = target.nextListHolder;
       }
     }
-    List<PrimitiveCuboid> overlaps = new ArrayList<PrimitiveCuboid>();
     for(PrimitiveCuboid pc : cuboids){
       if(c.overlaps(pc)){
+        for(QuadNode target : targets){
+          if(target.cuboids.size() == 0){
+            pruneTree(node);
+          }
+        }
         return false;
       }
     }
@@ -523,6 +583,10 @@ public class QuadTree{
   }
 
   synchronized public void delete(PrimitiveCuboid c){
+    // No root? No-Op!
+    if(root == null){
+      return;
+    }
     QuadNode node;
     // Should not create any new nodes, but only if the cuboid is, in fact, in
     // the tree

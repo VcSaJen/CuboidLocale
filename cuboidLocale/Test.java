@@ -1,7 +1,5 @@
 package cuboidLocale;
 
-import java.util.List;
-
 public class Test{
   public static void main(String[] argc){
     QuadTree tree = new QuadTree();
@@ -20,25 +18,19 @@ public class Test{
           y + (rng.nextInt() % 256),
           z + (rng.nextInt() % 256)
           );
-      List<PrimitiveCuboid> overlaps = tree.cuboidOverlapsWith(test);
-      if(overlaps.size() == 0){
+      if(!tree.cuboidOverlapsExisting(test)){
         tree.insert(test);
         if(i % 47 == 0){
           tree.delete(test);
         }
       }else{
-        // System.out.println("Overlap");
         ct++;
-        for(PrimitiveCuboid o : overlaps){
-          System.err.println(o);
-        }
-        System.err.println();
       }
       if(i % 1000 == 0){
         System.err.println(i);
       }
     }
-    System.out.println(ct + "overlaped");
+    System.out.println(ct + " overlaped");
     BookmarkedResult res = BookmarkedResult.emptyBookmark;
     x = (rng.nextInt()) % 10000;
     y = (rng.nextInt()) % 10000;
