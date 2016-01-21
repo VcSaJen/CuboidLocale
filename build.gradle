@@ -12,3 +12,12 @@ repositories {
 dependencies {
     
 }
+
+sourceSets {
+    main {
+        java {
+            srcDir '/'
+            exclude 'build.gradle'
+       }
+   }
+}
